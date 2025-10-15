@@ -577,18 +577,25 @@ String getCurrentTimestamp() {
 void printSystemStatus() {
   Serial.println("\n=== System Status ===");
   Serial.println("WiFi SSID: " + String(ssid));
-  Serial.println("WiFi Status: " + (wifiConnected ? "Connected" : "Disconnected"));
+  Serial.println(String("WiFi Status: ") + (wifiConnected ? "Connected" : "Disconnected"));
+
   if (wifiConnected) {
     Serial.println("IP Address: " + WiFi.localIP().toString());
     Serial.println("Signal Strength: " + String(WiFi.RSSI()) + " dBm");
   }
+
   Serial.println("MAC Address: " + WiFi.macAddress());
-  Serial.println("Sensor Address: " + sensorAddress);
+
+  for (int i = 0; i < totalSensors; i++) {
+    Serial.println("Sensor " + String(i+1) + " Address: " + sensorList[i].address);
+  }
+
   Serial.println("Server URL: " + String(serverURL));
   Serial.println("Current Time: " + getCurrentTimestamp());
   Serial.println("Free Heap: " + String(ESP.getFreeHeap()) + " bytes");
   Serial.println("====================\n");
 }
+
 
 // Optional: Print system status every 30 seconds for debugging
 void printStatusPeriodically() {

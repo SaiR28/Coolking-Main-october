@@ -116,6 +116,55 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+# --- Helper Functions ---
+
+def normalize_sensor_id(sensor_id):
+    """
+    Normalize sensor ID to handle different formats from ESP32 devices.
+    Supports both continuous hex (28AABBCCDDEE0011) and spaced hex (28 AA BB CC DD EE 00 11).
+    Returns the continuous uppercase format for database lookup.
+    """
+    if not sensor_id:
+        return None
+
+    # Remove spaces and convert to uppercase
+    normalized = str(sensor_id).replace(" ", "").upper()
+
+    # Ensure it's 16 characters (8 bytes in hex)
+    if len(normalized) == 16 and all(c in '0123456789ABCDEF' for c in normalized):
+        return normalized
+
+    return None
+
+def find_cold_room_by_sensor_flexible(sensor_id):
+    """
+    Find cold room by sensor ID with flexible matching.
+    Tries both the original format and normalized format.
+    """
+    if not sensor_id:
+        return None
+
+    # Try original format first
+    cold_room = get_cold_room_by_sensor(sensor_id)
+    if cold_room:
+        return cold_room
+
+    # Try normalized format (remove spaces, uppercase)
+    normalized_id = normalize_sensor_id(sensor_id)
+    if normalized_id and normalized_id != sensor_id:
+        cold_room = get_cold_room_by_sensor(normalized_id)
+        if cold_room:
+            return cold_room
+
+    # Try with spaces added (convert continuous to spaced format)
+    if len(sensor_id) == 16 and ' ' not in sensor_id:
+        spaced_format = ' '.join([sensor_id[i:i+2] for i in range(0, len(sensor_id), 2)])
+        cold_room = get_cold_room_by_sensor(spaced_format.upper())
+        if cold_room:
+            return cold_room
+
+    return None
+
 # --- ESP32 API Endpoint ---
 
 @app.route('/api/data', methods=['POST'])
@@ -144,7 +193,7 @@ def receive_esp32_data():
             temperature = reading.get('temperature')
 
             if sensor_id and temperature is not None:
-                cold_room = get_cold_room_by_sensor(sensor_id)
+                cold_room = find_cold_room_by_sensor_flexible(sensor_id)
                 if cold_room:
                     insert_temperature_data(cold_room['id'], temperature)
                     processed_count += 1
