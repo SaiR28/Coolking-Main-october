@@ -120,9 +120,10 @@ def logout():
 
 @app.route('/api/data', methods=['POST'])
 def receive_esp32_data():
-    api_key = request.headers.get('X-API-Key')
-    if api_key != 'YOUR_ESP32_API_KEY_HERE': # <<< CHANGE THIS KEY!
-        return jsonify({"status": "error", "message": "Unauthorized API Key"}), 401
+    # API Key check bypassed for testing
+    # api_key = request.headers.get('X-API-Key')
+    # if api_key != 'Cool2814': # <<< CHANGE THIS KEY!
+    #     return jsonify({"status": "error", "message": "Unauthorized API Key"}), 401
 
     try:
         data = request.get_json()

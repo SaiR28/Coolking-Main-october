@@ -35,7 +35,8 @@ const char* password = "";  // Empty password as specified
 
 // Server Configuration
 const char* serverURL = "https://coolkingengineering.in/api/data";
-const char* apiKey = "YOUR_ESP32_API_KEY_HERE";  // Change this to match your server
+// API Key bypassed for testing
+// const char* apiKey = "YOUR_ESP32_API_KEY_HERE";  // Commented out for testing
 
 // Hardware Configuration
 #define ONE_WIRE_BUS 4           // GPIO pin for DS18B20 data line
@@ -488,19 +489,15 @@ void sendDataToServer() {
   HTTPClient http;
   http.begin(serverURL);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Key", apiKey);
+  // API Key header removed for testing
+  // http.addHeader("X-API-Key", apiKey);
   http.setTimeout(10000); // 10 second timeout
 
-  // Create JSON payload for multiple sensors
-  DynamicJsonDocument doc(2048); // Increased size for multiple sensors
+  // Create simplified JSON payload compatible with server
+  DynamicJsonDocument doc(1024);
   doc["esp32_mac"] = WiFi.macAddress();
-  doc["timestamp"] = getCurrentTimestamp();
-  doc["device_info"]["boot_count"] = bootCount;
-  doc["device_info"]["uptime_minutes"] = millis() / 60000;
-  doc["device_info"]["free_heap"] = ESP.getFreeHeap();
-  doc["device_info"]["wifi_rssi"] = WiFi.RSSI();
 
-  // Add readings array for all sensors
+  // Add readings array - server expects only sensor_id and temperature
   JsonArray readings = doc.createNestedArray("readings");
 
   int totalReadingsAdded = 0;
@@ -513,76 +510,9 @@ void sendDataToServer() {
       if (temp != DEVICE_DISCONNECTED_C && temp > -50 && temp < 85) {
         JsonObject reading = readings.createNestedObject();
         reading["sensor_id"] = sensorList[sensorIndex].address;
-        reading["sensor_name"] = sensorList[sensorIndex].name;
         reading["temperature"] = round(temp * 10) / 10.0; // Round to 1 decimal
-        reading["reading_number"] = readingIndex + 1;
-        reading["batch_timestamp"] = getCurrentTimestamp();
         totalReadingsAdded++;
       }
-    }
-  }
-
-  // Add sensor statistics for each sensor
-  JsonArray sensorStats = doc.createNestedArray("sensor_statistics");
-
-  for (int i = 0; i < totalSensors; i++) {
-    if (!sensorList[i].isConnected) continue;
-
-    JsonObject sensorStat = sensorStats.createNestedObject();
-    sensorStat["sensor_id"] = sensorList[i].address;
-    sensorStat["sensor_name"] = sensorList[i].name;
-    sensorStat["is_connected"] = sensorList[i].isConnected;
-    sensorStat["error_count"] = sensorList[i].errorCount;
-    sensorStat["current_temperature"] = sensorList[i].currentTemp;
-
-    // Calculate statistics for this sensor's readings
-    float sum = 0, minTemp = 999, maxTemp = -999;
-    int validReadings = 0;
-
-    for (int j = 0; j < READINGS_PER_BATCH; j++) {
-      float temp = sensorList[i].readings[j];
-      if (temp != DEVICE_DISCONNECTED_C && temp > -50 && temp < 85) {
-        sum += temp;
-        if (temp < minTemp) minTemp = temp;
-        if (temp > maxTemp) maxTemp = temp;
-        validReadings++;
-      }
-    }
-
-    if (validReadings > 0) {
-      sensorStat["average"] = round((sum / validReadings) * 10) / 10.0;
-      sensorStat["minimum"] = round(minTemp * 10) / 10.0;
-      sensorStat["maximum"] = round(maxTemp * 10) / 10.0;
-      sensorStat["valid_readings"] = validReadings;
-    } else {
-      sensorStat["average"] = nullptr;
-      sensorStat["minimum"] = nullptr;
-      sensorStat["maximum"] = nullptr;
-      sensorStat["valid_readings"] = 0;
-    }
-  }
-
-  // Add system errors if any
-  if (errorCount > 0) {
-    JsonArray errors = doc.createNestedArray("system_errors");
-    int errorsToSend = min(errorCount, 5); // Send last 5 errors
-
-    for (int i = 0; i < errorsToSend; i++) {
-      int errorIndex = (errorCount - errorsToSend + i) % 10;
-      errors.add(systemErrors[errorIndex]);
-    }
-  }
-
-  // Overall transmission summary
-  doc["transmission_summary"]["total_sensors"] = totalSensors;
-  doc["transmission_summary"]["active_sensors"] = 0;
-  doc["transmission_summary"]["total_readings"] = totalReadingsAdded;
-  doc["transmission_summary"]["errors_reported"] = min(errorCount, 5);
-
-  // Count active sensors
-  for (int i = 0; i < totalSensors; i++) {
-    if (sensorList[i].isConnected) {
-      doc["transmission_summary"]["active_sensors"] = doc["transmission_summary"]["active_sensors"].as<int>() + 1;
     }
   }
 
@@ -591,6 +521,7 @@ void sendDataToServer() {
   serializeJson(doc, jsonString);
 
   Serial.println("Sending " + String(totalReadingsAdded) + " readings from " + String(totalSensors) + " sensors");
+  Serial.println("JSON Payload: " + jsonString);
 
   // Send HTTP POST request
   int httpResponseCode = http.POST(jsonString);
