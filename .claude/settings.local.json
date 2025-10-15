@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(sqlite3:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

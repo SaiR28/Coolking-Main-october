@@ -1,0 +1,406 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ location.name if location else 'Coolking Temperature Monitor' }}{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="title-section">
+                <h1>{{ location.name if location else 'Coolking Temperature Monitor' }}</h1>
+                {% if is_admin_view and all_locations|length > 1 %}
+                <select class="location-select" onchange="switchLocation(this.value)">
+                    <option value="">Select Location</option>
+                    {% for loc in all_locations %}
+                        <option value="{{ loc.id }}" {{ 'selected' if selected_location_id == loc.id else '' }}>
+                            {{ loc.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+            </div>
+            <div class="status-info">
+                <span class="status">{{ combined_stats.online_count if combined_stats else 0 }}/{{ combined_stats.total_count if combined_stats else 0 }} Online</span>
+                <span class="time" id="currentTime"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rooms Table -->
+    {% if cold_rooms %}
+    <div class="table-container">
+        <table class="rooms-table">
+            <thead>
+                <tr>
+                    <th>Room Name</th>
+                    <th>Temperature</th>
+                    <th>Last Update</th>
+                    <th>Status</th>
+                    {% if is_admin_view %}
+                    <th>Errors</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in cold_rooms %}
+                <tr class="room-row" onclick="openRoom({{ room.id }})">
+                    <td class="room-name">{{ room.name }}</td>
+                    <td class="temperature">
+                        {% if room.is_sensor_active and room.latest_temp is not none %}
+                            {{ "%.1f°C"|format(room.latest_temp) }}
+                        {% else %}
+                            <span class="offline">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="last-update">
+                        {% if room.minutes_ago is not none %}
+                            {% if room.minutes_ago < 1 %}
+                                Just now
+                            {% elif room.minutes_ago < 60 %}
+                                {{ room.minutes_ago|round|int }}m ago
+                            {% elif room.minutes_ago < 1440 %}
+                                {{ (room.minutes_ago / 60)|round|int }}h ago
+                            {% else %}
+                                {{ (room.minutes_ago / 1440)|round|int }}d ago
+                            {% endif %}
+                        {% else %}
+                            No data
+                        {% endif %}
+                    </td>
+                    <td class="status">
+                        {% if room.is_sensor_active and room.latest_temp is not none %}
+                            <span class="status-online">● Online</span>
+                        {% else %}
+                            <span class="status-offline">● Offline</span>
+                        {% endif %}
+                    </td>
+                    {% if is_admin_view %}
+                    <td class="errors">
+                        {% if room.esp32_errors %}
+                            <span class="error-count">{{ room.esp32_errors|length }}</span>
+                        {% else %}
+                            <span class="no-errors">--</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% elif show_location_selector %}
+    <div class="no-data">
+        <p>Select a location to view cold rooms</p>
+    </div>
+    {% else %}
+    <div class="no-data">
+        <p>No cold rooms found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Export Temperature Data</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="exportForm">
+                    <div class="mb-3">
+                        <label class="form-label">Date Range</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" class="form-control" id="dateFrom" name="date_from">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" class="form-control" id="dateTo" name="date_to">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data Frequency</label>
+                        <select class="form-select" name="aggregation">
+                            <option value="full">All Readings</option>
+                            <option value="hourly">Hourly Averages</option>
+                            <option value="daily">Daily Summaries</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Format</label>
+                        <select class="form-select" name="format">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeExport()">Export</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Simple Dashboard */
+.dashboard {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #ffffff;
+}
+
+/* Header */
+.header {
+    background: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title-section h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.location-select {
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.status-info {
+    text-align: right;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.status-info .status {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.status-info .time {
+    display: block;
+    font-size: 0.85rem;
+}
+
+/* Table */
+.table-container {
+    padding: 1rem 1.5rem;
+}
+
+.rooms-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.rooms-table th {
+    background: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    font-size: 0.85rem;
+}
+
+.rooms-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.room-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.room-row:hover {
+    background: #f8f9fa;
+}
+
+.room-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.temperature {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.temperature .offline {
+    color: #6c757d;
+}
+
+.last-update {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.status-online {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.status-offline {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.error-count {
+    background: #dc3545;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.no-errors {
+    color: #6c757d;
+}
+
+/* No Data */
+.no-data {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .dashboard {
+        max-width: 100%;
+    }
+
+    .header {
+        padding: 0.75rem 1rem;
+    }
+
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .status-info {
+        text-align: left;
+        width: 100%;
+    }
+
+    .table-container {
+        padding: 0.75rem 1rem;
+        overflow-x: auto;
+    }
+
+    .rooms-table {
+        min-width: 500px;
+    }
+
+    .rooms-table th,
+    .rooms-table td {
+        padding: 0.5rem;
+    }
+
+    .title-section h1 {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 0.5rem;
+    }
+
+    .table-container {
+        padding: 0.5rem;
+    }
+
+    .rooms-table th,
+    .rooms-table td {
+        padding: 0.4rem;
+    }
+}
+</style>
+
+<script>
+// Update current time
+function updateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    document.getElementById('currentTime').textContent = timeString;
+}
+
+// Switch location for admin view
+function switchLocation(locationId) {
+    if (locationId) {
+        window.location.href = `/dashboard?location_id=${locationId}`;
+    } else {
+        window.location.href = `/dashboard`;
+    }
+}
+
+// Open room details
+function openRoom(roomId) {
+    window.location.href = `/cold_room/${roomId}/data`;
+}
+
+// Show export modal
+function showExportModal() {
+    // Set default date range (last 7 days)
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('dateFrom').value = weekAgo.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+
+    new bootstrap.Modal(document.getElementById('exportModal')).show();
+}
+
+// Execute export
+function executeExport() {
+    const form = document.getElementById('exportForm');
+    const formData = new FormData(form);
+
+    // Create download URL for the first cold room (or modify to export all)
+    {% if cold_rooms and cold_rooms|length > 0 %}
+    const params = new URLSearchParams(formData);
+    window.location.href = `/cold_room/{{ cold_rooms[0].id }}/export?${params.toString()}`;
+    {% endif %}
+
+    bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateTime();
+    setInterval(updateTime, 1000);
+});
+
+// Auto refresh every 30 seconds
+setInterval(() => {
+    window.location.reload();
+}, 30000);
+</script>
+{% endblock %}

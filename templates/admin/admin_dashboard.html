@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Admin Dashboard</h1>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <h3 class="card-header">Locations Management</h3>
+                <p>Add, edit, or delete physical locations (e.g., hotels, warehouses).</p>
+                <a href="{{ url_for('manage_locations') }}" class="btn btn-primary">Manage Locations</a>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <h3 class="card-header">User Management</h3>
+                <p>Create and manage user accounts, assign roles and locations.</p>
+                <a href="{{ url_for('manage_users') }}" class="btn btn-primary">Manage Users</a>
+            </div>
+        </div>
+    </div>
+{% endblock %}

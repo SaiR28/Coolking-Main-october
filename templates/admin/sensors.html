@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Sensors in {{ cold_room.name }}{% endblock %}
+
+{% block content %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_locations') }}">Manage Locations</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_cold_rooms', location_id=location.id) }}">Cold Rooms in {{ location.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Sensors in {{ cold_room.name }}</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Sensors in {{ cold_room.name }}</h1>
+    <p class="text-muted">Location: {{ location.name }}</p>
+
+    <a href="{{ url_for('add_new_sensor', cold_room_id=cold_room.id) }}" class="btn btn-primary mb-3">Add New Sensor</a>
+
+    {% if sensors %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Sensor Name</th>
+                        <th>Unique ID (DS18B20 Address)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sensor in sensors %}
+                    <tr>
+                        <td data-label="ID">{{ sensor.id }}</td>
+                        <td data-label="Sensor Name">{{ sensor.name or 'N/A' }}</td>
+                        <td data-label="Unique ID">{{ sensor.sensor_id }}</td>
+                        <td data-label="Actions">
+                            <a href="{{ url_for('edit_sensor', sensor_id=sensor.id) }}" class="btn btn-secondary btn-sm me-2">Edit</a>
+                            <form action="{{ url_for('delete_sensor_route', sensor_id=sensor.id) }}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this sensor and all its associated data?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No sensors added for this cold room yet.
+        </div>
+    {% endif %}
+{% endblock %}

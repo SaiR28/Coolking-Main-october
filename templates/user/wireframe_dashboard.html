@@ -1,0 +1,463 @@
+{% extends 'base.html' %}
+
+{% block title %}Cold Room Monitor - {{ location.name if location else 'Dashboard' }}{% endblock %}
+
+{% block content %}
+<div class="wireframe-dashboard">
+    <!-- ===== TOP HEADER SECTION (as per wireframe) ===== -->
+    <div class="wireframe-header">
+        <div class="header-container">
+            <!-- Location Selector -->
+            <div class="location-section">
+                <h1 class="site-title">
+                    <i class="fas fa-building"></i>
+                    {% if location %}{{ location.name }}{% else %}Cold Room Monitor{% endif %}
+                </h1>
+                {% if current_user.is_admin() %}
+                <div class="admin-controls">
+                    <span class="admin-badge">Admin Panel</span>
+                    <select class="location-selector" onchange="changeLocation(this.value)">
+                        <option value="">Select Location</option>
+                        {% for loc in all_locations %}
+                            <option value="{{ loc.id }}" {% if selected_location_id == loc.id %}selected{% endif %}>
+                                {{ loc.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Navigation Tabs (MDIV + others) -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="mdiv">
+                    <i class="fas fa-thermometer-half"></i>
+                    MDIV
+                </button>
+                <button class="nav-tab" data-tab="reports">
+                    <i class="fas fa-chart-line"></i>
+                    Reports
+                </button>
+                <button class="nav-tab" data-tab="settings">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MDIV MAIN SECTION (as per wireframe) ===== -->
+    <div class="tab-content" id="mdiv-tab">
+        {% if location and cold_rooms %}
+            <!-- MDIV Overview Card -->
+            <div class="mdiv-overview">
+                <div class="mdiv-header">
+                    <h2>MDIV - Main Dashboard</h2>
+                    <div class="online-indicator">
+                        {% set total_rooms = cold_rooms|length %}
+                        {% set online_count = 0 %}
+                        {% set offline_count = 0 %}
+
+                        {% for room in cold_rooms %}
+                            {% if room.latest_temp is not none %}
+                                {% set online_count = online_count + 1 %}
+                            {% else %}
+                                {% set offline_count = offline_count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+
+                        <span class="status-circle {% if offline_count == 0 %}online{% elif online_count > offline_count %}partial{% else %}offline{% endif %}"></span>
+                        <span class="status-text">
+                            {{ online_count }} Online / {{ offline_count }} Offline
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Temperature Summary -->
+                <div class="temp-summary">
+                    {% if cold_rooms %}
+                        {% set all_temps = [] %}
+                        {% for room in cold_rooms %}
+                            {% if room.latest_temp is not none %}
+                                {% set _ = all_temps.append(room.latest_temp) %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if all_temps|length > 0 %}
+                            {% set avg_temp = (all_temps|sum / all_temps|length)|round(1) %}
+                            {% set min_temp = all_temps|min %}
+                            {% set max_temp = all_temps|max %}
+                        {% else %}
+                            {% set avg_temp = 0 %}
+                            {% set min_temp = 0 %}
+                            {% set max_temp = 0 %}
+                        {% endif %}
+
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="summary-label">Temp</span>
+                                <span class="summary-value main">{{ avg_temp }}°C</span>
+                                <span class="summary-sub">Average</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">24h Stats</span>
+                                <div class="stats-mini">
+                                    <div class="stat-row">
+                                        <span>Avg:</span> <span>{{ avg_temp }}°C</span>
+                                    </div>
+                                    <div class="stat-row">
+                                        <span>Min:</span> <span>{{ min_temp }}°C</span>
+                                    </div>
+                                    <div class="stat-row">
+                                        <span>Max:</span> <span>{{ max_temp }}°C</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Trend</span>
+                                <div class="trend-indicator">
+                                    {% if avg_temp > 2 %}
+                                        <i class="fas fa-arrow-up trend-up"></i>
+                                        <span>Rising</span>
+                                    {% elif avg_temp < -2 %}
+                                        <i class="fas fa-arrow-down trend-down"></i>
+                                        <span>Falling</span>
+                                    {% else %}
+                                        <i class="fas fa-minus trend-stable"></i>
+                                        <span>Stable</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Individual Cold Room Cards (as per wireframe) -->
+            <div class="cold-rooms-grid">
+                {% for room in cold_rooms %}
+                <div class="room-card" data-room-id="{{ room.id }}">
+                    <!-- Card Header -->
+                    <div class="card-header">
+                        <h3 class="room-name">{{ room.name }}</h3>
+                        <div class="room-status">
+                            {% if room.latest_temp is not none %}
+                                <span class="status-dot online"></span>
+                                <span class="status-label">Online</span>
+                            {% else %}
+                                <span class="status-dot offline"></span>
+                                <span class="status-label">Offline</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Current Temperature -->
+                    <div class="current-temp">
+                        {% if room.latest_temp is not none %}
+                            <span class="temp-value">{{ "%.1f"|format(room.latest_temp) }}°C</span>
+                            <span class="temp-time">
+                                {% if room.latest_time %}
+                                    Updated: {{ room.latest_time }}
+                                {% else %}
+                                    Just now
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            <span class="temp-offline">
+                                <i class="fas fa-wifi-slash"></i>
+                                No Data
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 24h Summary (as per wireframe) -->
+                    {% if room.avg_temp is not none %}
+                    <div class="card-summary">
+                        <div class="summary-stats">
+                            <div class="stat-group">
+                                <span class="stat-label">Avg</span>
+                                <span class="stat-value">{{ room.avg_temp }}°C</span>
+                            </div>
+                            <div class="stat-group">
+                                <span class="stat-label">Min</span>
+                                <span class="stat-value">{{ room.min_temp }}°C</span>
+                            </div>
+                            <div class="stat-group">
+                                <span class="stat-label">Max</span>
+                                <span class="stat-value">{{ room.max_temp }}°C</span>
+                            </div>
+                            <div class="stat-group">
+                                <span class="stat-label">Samples</span>
+                                <span class="stat-value">{{ room.readings_count or 0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Mini Chart (as per wireframe) -->
+                    {% if room.last_24h_data %}
+                    <div class="card-chart">
+                        <canvas class="room-chart" width="300" height="80"
+                                data-temps="{{ room.last_24h_data|map(attribute='temp')|list|tojson }}">
+                        </canvas>
+                    </div>
+                    {% endif %}
+
+                    <!-- Card Actions (as per wireframe) -->
+                    <div class="card-actions">
+                        <button class="btn-view" onclick="viewRoomDetails({{ room.id }})">
+                            <i class="fas fa-eye"></i>
+                            View
+                        </button>
+                        <button class="btn-download" onclick="downloadRoomData({{ room.id }}, '{{ room.name }}')">
+                            <i class="fas fa-download"></i>
+                            Download
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        {% else %}
+            <!-- No Data State -->
+            <div class="no-data-state">
+                <i class="fas fa-thermometer-empty"></i>
+                <h3>No Cold Rooms Found</h3>
+                <p>{% if location %}No cold rooms configured for {{ location.name }}{% else %}Please select a location to view cold rooms{% endif %}</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- ===== OTHER TAB CONTENTS ===== -->
+    <div class="tab-content hidden" id="reports-tab">
+        <div class="coming-soon">
+            <i class="fas fa-chart-bar"></i>
+            <h3>Reports Section</h3>
+            <p>Advanced reporting features coming soon...</p>
+        </div>
+    </div>
+
+    <div class="tab-content hidden" id="settings-tab">
+        <div class="coming-soon">
+            <i class="fas fa-cog"></i>
+            <h3>Settings Section</h3>
+            <p>Configuration options coming soon...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Download Modal (Enhanced from wireframe) -->
+<div id="downloadModal" class="modal-overlay" onclick="closeDownloadModal(event)">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="downloadModalTitle">Download Cold Room Data</h3>
+            <button class="modal-close" onclick="closeDownloadModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="downloadForm" class="download-form">
+                <input type="hidden" id="downloadRoomId" name="room_id">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dateFrom">From Date:</label>
+                        <input type="date" id="dateFrom" name="date_from" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dateTo">To Date:</label>
+                        <input type="date" id="dateTo" name="date_to" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dataType">Data Type:</label>
+                        <select id="dataType" name="aggregation" required>
+                            <option value="full">Full Data (All Readings)</option>
+                            <option value="hourly">Hourly Averages</option>
+                            <option value="daily">Daily Averages</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fileFormat">Format:</label>
+                        <select id="fileFormat" name="format" required>
+                            <option value="csv">CSV (.csv)</option>
+                            <option value="excel">Excel (.xlsx)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeDownloadModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-download-submit">
+                        <i class="fas fa-download"></i>
+                        Download
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab Navigation (as per wireframe)
+function switchTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+    });
+
+    // Remove active class from all nav tabs
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Show selected tab content
+    document.getElementById(tabName + '-tab').classList.remove('hidden');
+
+    // Add active class to selected nav tab
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+}
+
+// Location selector
+function changeLocation(locationId) {
+    if (locationId) {
+        window.location.href = `{{ url_for('user_dashboard') }}?location_id=${locationId}`;
+    } else {
+        window.location.href = `{{ url_for('user_dashboard') }}`;
+    }
+}
+
+// Room actions
+function viewRoomDetails(roomId) {
+    window.open(`/cold_room/${roomId}/data`, '_blank');
+}
+
+function downloadRoomData(roomId, roomName) {
+    document.getElementById('downloadModal').style.display = 'flex';
+    document.getElementById('downloadModalTitle').textContent = `Download ${roomName} Data`;
+    document.getElementById('downloadRoomId').value = roomId;
+
+    // Set default dates (last 7 days)
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+    document.getElementById('dateFrom').value = lastWeek.toISOString().split('T')[0];
+}
+
+function closeDownloadModal(event) {
+    if (!event || event.target === event.currentTarget || event.type === 'click') {
+        document.getElementById('downloadModal').style.display = 'none';
+    }
+}
+
+// Chart drawing (as per wireframe)
+function drawRoomCharts() {
+    document.querySelectorAll('.room-chart').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        const temps = JSON.parse(canvas.dataset.temps);
+
+        if (temps.length === 0) return;
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 10;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Find min/max for scaling
+        const minTemp = Math.min(...temps);
+        const maxTemp = Math.max(...temps);
+        const tempRange = maxTemp - minTemp || 1;
+
+        // Set up gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, 'rgba(30, 136, 229, 0.4)');
+        gradient.addColorStep(1, 'rgba(30, 136, 229, 0.1)');
+
+        // Draw area chart
+        ctx.beginPath();
+        ctx.moveTo(padding, height - padding);
+
+        temps.forEach((temp, index) => {
+            const x = padding + (index / (temps.length - 1)) * (width - 2 * padding);
+            const y = height - padding - ((temp - minTemp) / tempRange) * (height - 2 * padding);
+            ctx.lineTo(x, y);
+        });
+
+        ctx.lineTo(width - padding, height - padding);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw line
+        ctx.beginPath();
+        temps.forEach((temp, index) => {
+            const x = padding + (index / (temps.length - 1)) * (width - 2 * padding);
+            const y = height - padding - ((temp - minTemp) / tempRange) * (height - 2 * padding);
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        ctx.strokeStyle = '#1E88E5';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            switchTab(tabName);
+        });
+    });
+
+    // Draw charts
+    drawRoomCharts();
+
+    // Download form handling
+    document.getElementById('downloadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const params = new URLSearchParams();
+
+        for (let [key, value] of formData.entries()) {
+            params.append(key, value);
+        }
+
+        const roomId = formData.get('room_id');
+        const url = `/cold_room/${roomId}/export?${params.toString()}`;
+
+        // Create download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        closeDownloadModal();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDownloadModal();
+        }
+    });
+});
+</script>
+{% endblock %}

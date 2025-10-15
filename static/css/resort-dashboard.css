@@ -1,0 +1,849 @@
+/* ===================================
+   🏨 RESORT COLD ROOM MONITORING DASHBOARD
+   Premium UI/UX Design System
+   ================================== */
+
+/* === GOOGLE FONTS === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap');
+
+/* === CSS VARIABLES === */
+:root {
+  /* === COLORS === */
+  --primary-blue: #1E88E5;
+  --primary-dark: #1565C0;
+  --accent-blue: #00A8E8;
+  --success-green: #4CAF50;
+  --warning-orange: #FF9800;
+  --error-red: #F44336;
+  --offline-gray: #9E9E9E;
+
+  /* === BACKGROUNDS === */
+  --bg-primary: #F5F7FA;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --bg-header: rgba(255, 255, 255, 0.95);
+
+  /* === TEXT COLORS === */
+  --text-primary: #2C3E50;
+  --text-secondary: #546E7A;
+  --text-muted: #90A4AE;
+  --text-white: #FFFFFF;
+
+  /* === SHADOWS === */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --shadow-header: 0 2px 20px rgba(0, 0, 0, 0.1);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+  /* === SPACING === */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+
+  /* === BORDERS === */
+  --border-radius: 16px;
+  --border-radius-sm: 8px;
+  --border-radius-lg: 24px;
+
+  /* === TYPOGRAPHY === */
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+}
+
+/* === GLOBAL RESET === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* === MAIN CONTAINER === */
+.resort-dashboard {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* ===================================
+   🏢 RESORT HEADER SECTION
+   ================================== */
+
+.resort-header-bar {
+  background: var(--bg-header);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-header);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.header-main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+/* === RESORT IDENTITY === */
+.resort-identity {
+  flex: 1;
+  min-width: 300px;
+}
+
+.resort-name {
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.resort-name i {
+  color: var(--primary-blue);
+  font-size: 2rem;
+}
+
+.resort-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.system-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+}
+
+.stat-item i {
+  color: var(--primary-blue);
+}
+
+.stat-divider {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+/* === HEADER CONTROLS === */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius-sm);
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-indicator.all-good {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--success-green);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.status-indicator.some-offline {
+  background: rgba(255, 152, 0, 0.1);
+  color: var(--warning-orange);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.status-indicator.alerts-active {
+  background: rgba(244, 67, 54, 0.1);
+  color: var(--error-red);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.status-indicator.no-data {
+  background: rgba(158, 158, 158, 0.1);
+  color: var(--offline-gray);
+  border: 1px solid rgba(158, 158, 158, 0.3);
+}
+
+/* === HEADER ACTIONS === */
+.header-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.action-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:hover {
+  background: var(--primary-blue);
+  color: var(--text-white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(30, 136, 229, 0.3);
+}
+
+.action-btn.alert-btn {
+  background: var(--error-red);
+  color: var(--text-white);
+}
+
+.action-btn .alert-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--text-white);
+  color: var(--error-red);
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===================================
+   🏷️ RESORT COLD ROOMS GRID
+   ================================== */
+
+.resort-cold-rooms-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: var(--spacing-lg);
+  animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === INDIVIDUAL COLD ROOM CARD === */
+.resort-room-card {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.resort-room-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-blue);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.resort-room-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.resort-room-card:hover::before {
+  transform: scaleX(1);
+}
+
+.resort-room-card.status-normal::before {
+  background: var(--success-green);
+}
+
+.resort-room-card.status-alert::before {
+  background: var(--error-red);
+}
+
+.resort-room-card.status-offline::before {
+  background: var(--offline-gray);
+}
+
+/* === CARD HEADER === */
+.resort-card-header {
+  padding: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+}
+
+.room-title-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.resort-room-name {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.room-status-bubble {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.status-bubble {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  animation: breathe 2s infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.status-bubble.online {
+  background: var(--success-green);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+}
+
+.status-bubble.alert {
+  background: var(--error-red);
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.3);
+}
+
+.status-bubble.offline {
+  background: var(--offline-gray);
+  box-shadow: 0 0 0 3px rgba(158, 158, 158, 0.3);
+}
+
+/* === TEMPERATURE DISPLAY === */
+.resort-temp-display {
+  padding: 0 var(--spacing-lg);
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.large-temp-value {
+  font-family: var(--font-mono);
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  text-shadow: 0 2px 4px rgba(0, 168, 232, 0.2);
+  margin-bottom: 0.5rem;
+}
+
+.offline-temp-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.offline-temp-value i {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+/* === UPDATE TIME === */
+.resort-update-time {
+  text-align: center;
+  padding: 0 var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+/* === 24H SUMMARY === */
+.resort-24h-summary {
+  padding: 0 var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.summary-header h4 {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.trend-rising {
+  color: var(--error-red);
+}
+
+.trend-falling {
+  color: var(--primary-blue);
+}
+
+.trend-stable {
+  color: var(--success-green);
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  background: rgba(248, 250, 252, 0.8);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* === MINI CHART === */
+.mini-chart-container {
+  padding: 0 var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.05) 0%, rgba(0, 168, 232, 0.05) 100%);
+  border-radius: var(--border-radius-sm);
+  margin-left: var(--spacing-lg);
+  margin-right: var(--spacing-lg);
+}
+
+.mini-temp-chart {
+  width: 100%;
+  height: 40px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.resort-room-card:hover .mini-temp-chart {
+  opacity: 1;
+}
+
+/* === CARD ACTIONS === */
+.resort-card-actions {
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+  display: flex;
+  gap: var(--spacing-sm);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.action-btn.primary {
+  flex: 1;
+  height: 44px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: var(--primary-blue);
+  color: var(--text-white);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.9rem;
+}
+
+.action-btn.primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 136, 229, 0.4);
+}
+
+.action-btn.secondary {
+  height: 44px;
+  width: 44px;
+  border: 1px solid rgba(30, 136, 229, 0.3);
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--primary-blue);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 1rem;
+}
+
+.action-btn.secondary:hover {
+  background: var(--primary-blue);
+  color: var(--text-white);
+  transform: translateY(-1px);
+}
+
+/* ===================================
+   📱 RESPONSIVE DESIGN
+   ================================== */
+
+@media (max-width: 768px) {
+  .resort-header-bar {
+    padding: var(--spacing-md);
+  }
+
+  .header-main-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-md);
+  }
+
+  .resort-name {
+    font-size: 2rem;
+  }
+
+  .system-stats {
+    justify-content: center;
+  }
+
+  .header-controls {
+    justify-content: center;
+  }
+
+  .resort-cold-rooms-grid {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+  }
+
+  .large-temp-value {
+    font-size: 2.8rem;
+  }
+
+  .resort-card-actions {
+    flex-direction: column;
+  }
+
+  .action-btn.secondary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .resort-name {
+    font-size: 1.5rem;
+  }
+
+  .large-temp-value {
+    font-size: 2.2rem;
+  }
+
+  .summary-stats {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xs);
+  }
+}
+
+/* ===================================
+   🎭 MODAL STYLES
+   ================================== */
+
+.modal-enhanced {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content-enhanced {
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-modal);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modalSlideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(60px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header-enhanced {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.modal-header-enhanced h2 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: var(--error-red);
+}
+
+.modal-body-enhanced {
+  padding: var(--spacing-lg);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* === EXPORT FORM STYLES === */
+.export-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.1);
+}
+
+.export-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.btn-cancel,
+.btn-export {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-export {
+  background: var(--primary-blue);
+  color: var(--text-white);
+}
+
+.btn-export:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 136, 229, 0.4);
+}
+
+/* ===================================
+   🔄 LOADING & ANIMATIONS
+   ================================== */
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  color: var(--text-muted);
+}
+
+.loading-spinner i {
+  font-size: 2rem;
+  color: var(--primary-blue);
+}
+
+.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===================================
+   🎯 UTILITY CLASSES
+   ================================== */
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: var(--spacing-xs); }
+.mb-2 { margin-bottom: var(--spacing-sm); }
+.mb-3 { margin-bottom: var(--spacing-md); }
+.mb-4 { margin-bottom: var(--spacing-lg); }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: var(--spacing-xs); }
+.mt-2 { margin-top: var(--spacing-sm); }
+.mt-3 { margin-top: var(--spacing-md); }
+.mt-4 { margin-top: var(--spacing-lg); }

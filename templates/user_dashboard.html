@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}My Dashboard{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">My Dashboard</h1>
+
+    {% if location %}
+        <h2 class="mb-3">Location: {{ location.name }}</h2>
+        <p class="text-muted">{{ location.description }}</p>
+
+        {% if cold_rooms_data %}
+            <h3 class="mb-3">Cold Rooms in {{ location.name }}</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Cold Room Name</th>
+                            <th>Description</th>
+                            <th>Sensor Name</th>
+                            <th>Latest Temp (°C)</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for room in cold_rooms_data %}
+                        <tr>
+                            <td data-label="Cold Room Name">{{ room.name }}</td>
+                            <td data-label="Description">{{ room.description }}</td>
+                            <td data-label="Sensor Name">{{ room.sensor_name }}</td>
+                            <td data-label="Latest Temp">{{ room.latest_temperature }}</td>
+                            <td data-label="Last Updated">{{ room.latest_timestamp }}</td>
+                            <td data-label="Actions">
+                                <a href="{{ url_for('view_cold_room_data', cold_room_id=room.id) }}" class="btn btn-info btn-sm">View Details & Chart</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                No cold rooms configured for this location yet, or no sensor data available.
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            You are not assigned to any location. Please contact an administrator.
+        </div>
+    {% endif %}
+{% endblock %}

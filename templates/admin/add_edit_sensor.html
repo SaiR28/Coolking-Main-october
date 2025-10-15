@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_locations') }}">Manage Locations</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_cold_rooms', location_id=location.id) }}">Cold Rooms in {{ location.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('manage_sensors', cold_room_id=cold_room.id) }}">Sensors in {{ cold_room.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">{{ title }} for {{ cold_room.name }}</h1>
+
+    <div class="card">
+        <form method="POST">
+            <div class="form-group">
+                <label for="sensor_id">DS18B20 Unique ID (64-bit Address)</label>
+                <input type="text" class="form-control" id="sensor_id" name="sensor_id" value="{{ sensor.sensor_id if sensor else '' }}" required placeholder="e.g., 28-00000B234567">
+                <small class="form-text text-muted">This is the unique hardware address of the DS18B20 sensor.</small>
+            </div>
+            <div class="form-group">
+                <label for="name">Sensor Name (e.g., "Top Shelf", "Near Door")</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ sensor.name if sensor else '' }}" placeholder="Optional friendly name">
+            </div>
+            <button type="submit" class="btn btn-primary">Save Sensor</button>
+            <a href="{{ url_for('manage_sensors', cold_room_id=cold_room.id) }}" class="btn btn-secondary ms-2">Cancel</a>
+        </form>
+    </div>
+{% endblock %}

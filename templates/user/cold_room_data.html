@@ -1,0 +1,1309 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cold_room.name }} - Coolking Temperature Monitor{% endblock %}
+
+{% block content %}
+<div class="room-detail-container">
+    <!-- Room Header -->
+    <div class="room-header">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack()">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <div class="room-title">
+                <h1>{{ cold_room.name }}</h1>
+                <span class="room-location">{{ location.name if location else 'Unknown Location' }}</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="export-btn" onclick="showExportModal()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Temperature Parameters Cards -->
+    <div class="temperature-params-section">
+        <div class="params-grid">
+            <!-- Latest Temperature -->
+            <div class="param-card latest-temp">
+                <div class="param-icon">
+                    <i class="fas fa-thermometer-half"></i>
+                </div>
+                <div class="param-content">
+                    <h3>Latest Temperature</h3>
+                    {% if chart_data and chart_data[chart_data|list|first].temperatures %}
+                        {% set latest_data = chart_data[chart_data|list|first] %}
+                        {% set current_temp = latest_data.temperatures[0] %}
+                        <div class="param-value">{{ "%.1f"|format(current_temp) }}<span class="unit">°C</span></div>
+                        <div class="param-status online">
+                            <i class="fas fa-wifi"></i> Live
+                        </div>
+                    {% else %}
+                        <div class="param-value offline">--<span class="unit">°C</span></div>
+                        <div class="param-status offline">
+                            <i class="fas fa-wifi-slash"></i> Offline
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Average Temperature -->
+            <div class="param-card avg-temp">
+                <div class="param-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="param-content">
+                    <h3>24h Average</h3>
+                    <div class="param-value" id="avgTempValue">--<span class="unit">°C</span></div>
+                    <div class="param-status">
+                        <i class="fas fa-calendar-day"></i> Last 24hrs
+                    </div>
+                </div>
+            </div>
+
+            <!-- Minimum Temperature -->
+            <div class="param-card min-temp">
+                <div class="param-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="param-content">
+                    <h3>Minimum</h3>
+                    <div class="param-value" id="minTempValue">--<span class="unit">°C</span></div>
+                    <div class="param-status">
+                        <i class="fas fa-clock"></i> <span id="minTempTime">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maximum Temperature -->
+            <div class="param-card max-temp">
+                <div class="param-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="param-content">
+                    <h3>Maximum</h3>
+                    <div class="param-value" id="maxTempValue">--<span class="unit">°C</span></div>
+                    <div class="param-status">
+                        <i class="fas fa-clock"></i> <span id="maxTempTime">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Chart Section -->
+    <div class="enhanced-chart-section">
+        <div class="chart-header-enhanced">
+            <div class="chart-title-section">
+                <h2><i class="fas fa-chart-area"></i> Temperature Trends</h2>
+                <p class="chart-subtitle">Historical temperature data visualization</p>
+            </div>
+
+            <div class="chart-controls-enhanced">
+                <div class="chart-time-info">
+                    <span class="time-range-badge">
+                        <i class="fas fa-clock"></i>
+                        Last 24 Hours
+                    </span>
+                </div>
+
+                <button class="export-btn-enhanced" onclick="showExportModal()">
+                    <i class="fas fa-download"></i>
+                    Export Data
+                </button>
+            </div>
+        </div>
+
+        <div class="chart-container-enhanced">
+            <canvas id="tempChart"></canvas>
+        </div>
+
+        <div class="chart-info-panel">
+            <div class="chart-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Readings</span>
+                    <span class="stat-value" id="totalReadings">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Data Range</span>
+                    <span class="stat-value" id="dataRange">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Last Updated</span>
+                    <span class="stat-value" id="lastUpdated">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESP32 Errors Section (Admin Only) -->
+    {% if current_user.is_admin() %}
+    <div class="errors-section">
+        <div class="errors-header">
+            <h3>ESP32 Communication</h3>
+            <span class="sensor-id">Sensor ID: {{ cold_room.sensor_id if cold_room.sensor_id else 'Not Configured' }}</span>
+        </div>
+        <div class="errors-container" id="errorsContainer">
+            <div class="loading-indicator">Loading error logs...</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Export Temperature Data - {{ cold_room.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="exportForm">
+                    <div class="export-summary-card">
+                        <h4><i class="fas fa-download"></i> Export 24-Hour Temperature Data</h4>
+                        <div class="export-params-preview">
+                            <div class="export-params-line">
+                                <div class="export-param">
+                                    <span class="export-param-label">Latest</span>
+                                    <span class="export-param-value" id="exportLatest">--°C</span>
+                                </div>
+                                <div class="export-param">
+                                    <span class="export-param-label">Average</span>
+                                    <span class="export-param-value" id="exportAverage">--°C</span>
+                                </div>
+                                <div class="export-param">
+                                    <span class="export-param-label">Minimum</span>
+                                    <span class="export-param-value" id="exportMinimum">--°C</span>
+                                </div>
+                                <div class="export-param">
+                                    <span class="export-param-label">Maximum</span>
+                                    <span class="export-param-value" id="exportMaximum">--°C</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="export-options">
+                        <div class="mb-3">
+                            <label class="form-label">Export Format</label>
+                            <select class="form-select" name="format">
+                                <option value="csv" selected>CSV (Excel Compatible)</option>
+                                <option value="excel">Excel (.xlsx)</option>
+                            </select>
+                        </div>
+
+                        <input type="hidden" name="date_from" id="hiddenDateFrom">
+                        <input type="hidden" name="date_to" id="hiddenDateTo">
+                        <input type="hidden" name="aggregation" value="hourly">
+                    </div>
+
+                    <div class="export-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Export includes:</strong> Last 24 hours of temperature data with all readings,
+                        statistics (Latest, Average, Min, Max), and timestamps in one comprehensive file.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeExport()">
+                    <i class="fas fa-download"></i> Export Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Room Detail Container */
+.room-detail-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #f8fafc;
+    min-height: calc(100vh - 56px);
+    padding: 0;
+}
+
+/* Room Header */
+.room-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+}
+
+.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.back-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.back-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+.room-title h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.room-location {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.export-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.export-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+/* ========== TEMPERATURE PARAMETERS SECTION ========== */
+
+.temperature-params-section {
+    padding: 2rem;
+    background: #f8fafc;
+}
+
+.params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.param-card {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.param-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+}
+
+.param-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+}
+
+.param-card.latest-temp::before {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.param-card.avg-temp::before {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+.param-card.min-temp::before {
+    background: linear-gradient(90deg, #06b6d4, #0891b2);
+}
+
+.param-card.max-temp::before {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.param-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+}
+
+.latest-temp .param-icon {
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #059669;
+}
+
+.avg-temp .param-icon {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #1d4ed8;
+}
+
+.min-temp .param-icon {
+    background: linear-gradient(135deg, #cffafe, #a5f3fc);
+    color: #0891b2;
+}
+
+.max-temp .param-icon {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #d97706;
+}
+
+.param-content h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.param-value {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: #1f2937;
+    line-height: 1;
+    margin-bottom: 0.75rem;
+}
+
+.param-value.offline {
+    color: #9ca3af;
+}
+
+.param-value .unit {
+    font-size: 1.5rem;
+    color: #6b7280;
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+
+.param-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.param-status.online {
+    color: #059669;
+}
+
+.param-status.offline {
+    color: #9ca3af;
+}
+
+/* ========== ENHANCED CHART SECTION ========== */
+
+.enhanced-chart-section {
+    background: white;
+    margin: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.chart-header-enhanced {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    padding: 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.chart-title-section h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.chart-title-section h2 i {
+    color: #3b82f6;
+}
+
+.chart-subtitle {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.chart-controls-enhanced {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-select-enhanced {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.form-select-enhanced:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.export-btn-enhanced {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.export-btn-enhanced:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.chart-time-info {
+    display: flex;
+    align-items: center;
+}
+
+.time-range-badge {
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+    color: #4a5568;
+    padding: 0.75rem 1.25rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 2px solid #e2e8f0;
+}
+
+.time-range-badge i {
+    color: #3b82f6;
+}
+
+.chart-container-enhanced {
+    padding: 2rem;
+    height: 400px;
+    position: relative;
+}
+
+.chart-info-panel {
+    background: #f8fafc;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.chart-stats {
+    display: flex;
+    justify-content: space-around;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+    min-width: 120px;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* ========== EXPORT MODAL STYLES ========== */
+
+.export-summary-card {
+    background: linear-gradient(135deg, #f8fafc, #edf2f7);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.export-summary-card h4 {
+    margin: 0 0 1rem 0;
+    color: #2d3748;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.export-summary-card h4 i {
+    color: #3b82f6;
+}
+
+.export-params-line {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.export-param {
+    text-align: center;
+    padding: 0.75rem;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.export-param-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.export-param-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.export-info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    color: #1e40af;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.export-info i {
+    color: #3b82f6;
+    margin-top: 0.1rem;
+}
+
+@media (max-width: 768px) {
+    .export-params-line {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .export-params-line {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+}
+
+/* Current Status */
+.current-status {
+    background: white;
+    margin: 1rem 1.5rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.temp-display {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.temp-display.offline {
+    color: #6b7280;
+    font-size: 1.8rem;
+}
+
+.status-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.status.online {
+    color: #059669;
+    font-weight: 500;
+}
+
+.status.offline {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.update-time {
+    color: #6b7280;
+}
+
+/* Chart Section */
+.chart-section {
+    margin: 0 1.5rem 1rem;
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.chart-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.chart-controls select {
+    background: #f8f9fb;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.chart-container {
+    height: 300px;
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #64748b;
+}
+
+.legend-color {
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* Data Table Section */
+.data-section {
+    margin: 0 1.5rem 1rem;
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.data-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.data-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.data-table-container {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.data-table th {
+    background: #f9fafb;
+    color: #374151;
+    font-weight: 600;
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.85rem;
+}
+
+.data-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.data-table tr:hover {
+    background: #f8f9fb;
+}
+
+.temp-cell {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.status-online {
+    color: #22c55e;
+    font-weight: 500;
+}
+
+.status-offline {
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* ESP32 Errors Section */
+.errors-section {
+    margin: 0 1.5rem 2rem;
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-left: 4px solid #f59e0b;
+}
+
+.errors-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.errors-header h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.sensor-id {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.loading-indicator {
+    text-align: center;
+    color: #64748b;
+    padding: 2rem;
+}
+
+.error-item {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.error-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.error-type {
+    background: #dc2626;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.error-time {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.error-message {
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+/* Export Modal Enhancements */
+.export-preview {
+    background: #f8f9fb;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .room-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+        padding: 1rem;
+    }
+
+    .header-nav {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .status-banner,
+    .chart-section,
+    .data-section,
+    .errors-section {
+        margin: 0 1rem 1rem;
+        padding: 1.5rem;
+    }
+
+    .status-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+
+    .current-temp {
+        font-size: 2.5rem;
+    }
+
+    .chart-header,
+    .data-header,
+    .errors-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+
+    .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .room-detail-container {
+        padding: 0;
+    }
+
+    .status-banner,
+    .chart-section,
+    .data-section,
+    .errors-section {
+        margin: 0 0.5rem 1rem;
+        padding: 1rem;
+    }
+}
+</style>
+
+<script>
+// Global variables
+let temperatureChart = null;
+const roomId = {{ cold_room.id }};
+let chartData = {{ chart_data | tojson | safe }};
+
+// Go back function
+function goBack() {
+    window.history.back();
+}
+
+// Initialize parameter cards and chart
+function initChart() {
+    if (!chartData || Object.keys(chartData).length === 0) {
+        document.querySelector('.chart-container-enhanced').innerHTML =
+            '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #64748b;"><i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>No data available for chart</div>';
+        return;
+    }
+
+    const data = chartData[Object.keys(chartData)[0]];
+
+    if (!data || !data.timestamps || !data.temperatures) {
+        document.querySelector('.chart-container-enhanced').innerHTML =
+            '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #64748b;">No temperature data available</div>';
+        return;
+    }
+
+    // Calculate and update parameter cards
+    updateParameterCards(data);
+
+    // Update chart info panel
+    updateChartInfo(data);
+
+    const ctx = document.getElementById('tempChart').getContext('2d');
+
+    // Parse timestamps and create chart points
+    const chartPoints = data.timestamps.map((timestamp, index) => {
+        // Handle Indian format timestamp (DD-MM-YYYY HH:MM:SS)
+        let date;
+        if (timestamp.includes('-') && timestamp.split('-')[0].length === 2) {
+            // Indian format: DD-MM-YYYY HH:MM:SS
+            date = new Date(timestamp.replace(/(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})/, '$3-$2-$1T$4:$5:$6'));
+        } else {
+            // Standard format
+            date = new Date(timestamp);
+        }
+
+        return {
+            x: date,
+            y: data.temperatures[index]
+        };
+    });
+
+    temperatureChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: chartPoints,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#3b82f6',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        displayFormats: {
+                            hour: 'HH:mm',
+                            day: 'MMM DD'
+                        }
+                    },
+                    grid: {
+                        display: true,
+                        color: '#f1f5f9'
+                    },
+                    ticks: {
+                        color: '#64748b'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Temperature (°C)',
+                        color: '#374151',
+                        font: {
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        color: '#f1f5f9'
+                    },
+                    ticks: {
+                        color: '#64748b'
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+}
+
+// Update parameter cards with calculated statistics
+function updateParameterCards(data) {
+    const temperatures = data.temperatures || [];
+
+    if (temperatures.length === 0) return;
+
+    // Calculate statistics
+    const validTemps = temperatures.filter(temp => temp !== null && !isNaN(temp));
+
+    if (validTemps.length === 0) return;
+
+    const avgTemp = validTemps.reduce((sum, temp) => sum + temp, 0) / validTemps.length;
+    const minTemp = Math.min(...validTemps);
+    const maxTemp = Math.max(...validTemps);
+
+    // Find timestamps for min/max values
+    const minIndex = temperatures.indexOf(minTemp);
+    const maxIndex = temperatures.indexOf(maxTemp);
+    const minTime = minIndex >= 0 ? formatTimeAgo(data.timestamps[minIndex]) : '--';
+    const maxTime = maxIndex >= 0 ? formatTimeAgo(data.timestamps[maxIndex]) : '--';
+
+    // Update parameter cards
+    document.getElementById('avgTempValue').innerHTML = `${avgTemp.toFixed(1)}<span class="unit">°C</span>`;
+    document.getElementById('minTempValue').innerHTML = `${minTemp.toFixed(1)}<span class="unit">°C</span>`;
+    document.getElementById('maxTempValue').innerHTML = `${maxTemp.toFixed(1)}<span class="unit">°C</span>`;
+    document.getElementById('minTempTime').textContent = minTime;
+    document.getElementById('maxTempTime').textContent = maxTime;
+}
+
+// Update chart information panel
+function updateChartInfo(data) {
+    const totalReadings = data.temperatures ? data.temperatures.length : 0;
+    const timestamps = data.timestamps || [];
+
+    document.getElementById('totalReadings').textContent = totalReadings.toLocaleString();
+
+    if (timestamps.length > 0) {
+        const firstTime = new Date(timestamps[timestamps.length - 1]).toLocaleDateString();
+        const lastTime = new Date(timestamps[0]).toLocaleDateString();
+        document.getElementById('dataRange').textContent = `${firstTime} - ${lastTime}`;
+        document.getElementById('lastUpdated').textContent = formatTimeAgo(timestamps[0]);
+    } else {
+        document.getElementById('dataRange').textContent = '--';
+        document.getElementById('lastUpdated').textContent = '--';
+    }
+}
+
+// Format time ago helper function
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return '--';
+
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now - time;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return time.toLocaleDateString();
+}
+
+// Update chart based on time range
+function updateChart() {
+    const timeRange = document.getElementById('timeRange').value;
+    console.log('Updating chart for time range:', timeRange);
+    // TODO: Fetch new data based on the time range
+    // For now, just update the existing chart
+    if (temperatureChart) {
+        temperatureChart.update();
+    }
+}
+
+// Update chart type
+function updateChartType() {
+    const chartType = document.getElementById('chartType').value;
+
+    if (!temperatureChart) return;
+
+    const dataset = temperatureChart.data.datasets[0];
+
+    switch (chartType) {
+        case 'line':
+            dataset.fill = false;
+            dataset.pointRadius = 3;
+            dataset.borderWidth = 3;
+            break;
+        case 'area':
+            dataset.fill = true;
+            dataset.pointRadius = 2;
+            dataset.borderWidth = 2;
+            break;
+        case 'points':
+            dataset.fill = false;
+            dataset.pointRadius = 5;
+            dataset.borderWidth = 0;
+            dataset.showLine = false;
+            break;
+    }
+
+    temperatureChart.update();
+}
+
+// Enhanced Export Modal with better UI
+function showExportModal() {
+    // Set 24-hour date range
+    const today = new Date();
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+    document.getElementById('hiddenDateFrom').value = yesterday.toISOString().split('T')[0];
+    document.getElementById('hiddenDateTo').value = today.toISOString().split('T')[0];
+
+    // Update export parameter values from current data
+    if (chartData && Object.keys(chartData).length > 0) {
+        const data = chartData[Object.keys(chartData)[0]];
+        if (data && data.temperatures && data.temperatures.length > 0) {
+            const temperatures = data.temperatures.filter(temp => temp !== null && !isNaN(temp));
+
+            if (temperatures.length > 0) {
+                const latest = temperatures[0];
+                const avg = temperatures.reduce((sum, temp) => sum + temp, 0) / temperatures.length;
+                const min = Math.min(...temperatures);
+                const max = Math.max(...temperatures);
+
+                document.getElementById('exportLatest').textContent = latest.toFixed(1) + '°C';
+                document.getElementById('exportAverage').textContent = avg.toFixed(1) + '°C';
+                document.getElementById('exportMinimum').textContent = min.toFixed(1) + '°C';
+                document.getElementById('exportMaximum').textContent = max.toFixed(1) + '°C';
+            }
+        }
+    }
+
+    new bootstrap.Modal(document.getElementById('exportModal')).show();
+}
+
+
+// Execute export
+function executeExport() {
+    const form = document.getElementById('exportForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams(formData);
+
+    window.location.href = `/cold_room/${roomId}/export?${params.toString()}`;
+
+    bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+}
+
+// Load ESP32 errors (admin only)
+function loadESP32Errors() {
+    {% if current_user.is_admin() %}
+    // Simulate loading errors - in real implementation, this would be an AJAX call
+    setTimeout(() => {
+        const errorsContainer = document.getElementById('errorsContainer');
+        errorsContainer.innerHTML = `
+            <div class="error-item">
+                <div class="error-header">
+                    <span class="error-type">SENSOR_OFFLINE</span>
+                    <span class="error-time">2 hours ago</span>
+                </div>
+                <div class="error-message">Sensor ${`{{ cold_room.sensor_id if cold_room.sensor_id else 'UNKNOWN' }}`} has not reported data for over 15 minutes</div>
+            </div>
+            <div style="text-align: center; color: #64748b; padding: 1rem;">
+                <small>No additional errors found</small>
+            </div>
+        `;
+    }, 1000);
+    {% endif %}
+}
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initChart();
+    loadESP32Errors();
+});
+
+// Auto refresh every 60 seconds
+setInterval(() => {
+    window.location.reload();
+}, 60000);
+</script>
+{% endblock %}

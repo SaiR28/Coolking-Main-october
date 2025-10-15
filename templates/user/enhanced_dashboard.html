@@ -1,0 +1,557 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ location.name if location else 'Coolking Temperature Monitor' }}{% endblock %}
+
+{% block content %}
+    <div class="resort-dashboard">
+        <!-- Resort-Style Header Section -->
+        <div class="resort-header-bar">
+            <div class="header-main-content">
+                <!-- Resort/Site Name -->
+                <div class="resort-identity">
+                    <h1 class="resort-name">
+                        <i class="fas fa-building"></i>
+                        {% if location %}{{ location.name }}{% else %}Coolking Temperature Monitor{% endif %}
+                    </h1>
+                    <div class="resort-subtitle">
+                        {% if cold_rooms %}
+                            <!-- System Overview Stats -->
+                            <div class="system-stats">
+                                {% set total_rooms = cold_rooms|length %}
+                                {% set online_count = 0 %}
+                                {% set offline_count = 0 %}
+                                {% set alert_count = 0 %}
+
+                                {% for room in cold_rooms %}
+                                    {% if room.latest_temp is not none %}
+                                        {% set online_count = online_count + 1 %}
+                                        {% if room.temp_status == 'alert' %}
+                                            {% set alert_count = alert_count + 1 %}
+                                        {% endif %}
+                                    {% else %}
+                                        {% set offline_count = offline_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+
+                                <span class="stat-item">
+                                    <i class="fas fa-cube"></i>
+                                    <strong>{{ total_rooms }}</strong> Cold Rooms Connected
+                                </span>
+                                <span class="stat-divider">•</span>
+                                <span class="stat-item">
+                                    <i class="fas fa-wifi"></i>
+                                    <strong>{{ online_count }}</strong> Online / <strong>{{ offline_count }}</strong> Offline
+                                </span>
+                                <span class="stat-divider">•</span>
+                                <span class="stat-item">
+                                    <i class="fas fa-clock"></i>
+                                    Last Update: <strong id="lastUpdateTime">Now</strong>
+                                </span>
+                            </div>
+                        {% else %}
+                            <span>No cold rooms configured</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Header Controls -->
+                <div class="header-controls">
+                    <!-- Connection Status Indicator -->
+                    <div class="connection-status">
+                        {% if cold_rooms %}
+                            {% if offline_count == 0 and alert_count == 0 %}
+                                <div class="status-indicator all-good">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>All Systems Normal</span>
+                                </div>
+                            {% elif offline_count > 0 and alert_count == 0 %}
+                                <div class="status-indicator some-offline">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Some Systems Offline</span>
+                                </div>
+                            {% else %}
+                                <div class="status-indicator alerts-active">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    <span>Alerts Active</span>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="status-indicator no-data">
+                                <i class="fas fa-question-circle"></i>
+                                <span>No Data</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="header-actions">
+                        {% if alert_count > 0 %}
+                        <button class="action-btn alert-btn" onclick="showAlerts()" title="Active Alerts">
+                            <i class="fas fa-bell"></i>
+                            <span class="alert-badge">{{ alert_count }}</span>
+                        </button>
+                        {% else %}
+                        <button class="action-btn" onclick="showAlerts()" title="No Active Alerts">
+                            <i class="far fa-bell"></i>
+                        </button>
+                        {% endif %}
+
+                        <button class="action-btn" onclick="refreshDashboard()" title="Refresh Data">
+                            <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                        </button>
+
+                        {% if current_user.is_admin() %}
+                        <button class="action-btn" onclick="window.location.href='{{ url_for('admin_dashboard') }}'" title="Admin Settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if location %}
+            {% if cold_rooms %}
+                <!-- Cold Rooms Grid - Resort Style -->
+                <div class="resort-cold-rooms-grid">
+                    {% for room in cold_rooms %}
+                    <div class="resort-room-card status-{{ room.temp_status }}" data-room-id="{{ room.id }}">
+
+                        <!-- Resort Card Header -->
+                        <div class="resort-card-header">
+                            <div class="room-title-section">
+                                <h3 class="resort-room-name">{{ room.name }}</h3>
+                                <div class="room-status-bubble">
+                                    {% if room.latest_temp is not none %}
+                                        {% if room.temp_status == 'normal' %}
+                                            <span class="status-bubble online"></span>
+                                        {% else %}
+                                            <span class="status-bubble alert"></span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="status-bubble offline"></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Temperature Display -->
+                        <div class="resort-temp-display">
+                            {% if room.latest_temp is not none %}
+                                <div class="large-temp-value">
+                                    {{ "%.1f"|format(room.latest_temp) }}°C
+                                </div>
+                            {% else %}
+                                <div class="offline-temp-value">
+                                    <i class="fas fa-question-circle"></i>
+                                    <span>No Data</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Last Updated Time -->
+                        <div class="resort-update-time">
+                            {% if room.latest_time %}
+                                <i class="fas fa-clock"></i>
+                                <span>Updated {{ room.latest_time }}</span>
+                            {% else %}
+                                <i class="fas fa-clock"></i>
+                                <span>Never updated</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- 24-Hour Summary Section -->
+                        {% if room.avg_temp is not none %}
+                        <div class="resort-24h-summary">
+                            <div class="summary-header">
+                                <h4>24h Summary</h4>
+                                {% if room.trend == 'rising' %}
+                                    <i class="fas fa-arrow-up trend-rising" title="Temperature Rising"></i>
+                                {% elif room.trend == 'falling' %}
+                                    <i class="fas fa-arrow-down trend-falling" title="Temperature Falling"></i>
+                                {% else %}
+                                    <i class="fas fa-minus trend-stable" title="Temperature Stable"></i>
+                                {% endif %}
+                            </div>
+                            <div class="summary-stats">
+                                <div class="stat-item">
+                                    <span class="stat-value">{{ room.avg_temp }}°C</span>
+                                    <span class="stat-label">Average</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value">{{ room.min_temp }}°C</span>
+                                    <span class="stat-label">Min</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value">{{ room.max_temp }}°C</span>
+                                    <span class="stat-label">Max</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Mini Temperature Chart -->
+                        {% if room.last_24h_data %}
+                        <div class="mini-chart-container">
+                            <canvas class="mini-temp-chart" width="100" height="40" data-temps="{{ room.last_24h_data|map(attribute='temp')|list|tojson }}"></canvas>
+                        </div>
+                        {% endif %}
+
+                        <!-- Resort Card Actions -->
+                        <div class="resort-card-actions">
+                            <button class="action-btn primary" onclick="openRoomDetails({{ room.id }})">
+                                <i class="fas fa-chart-line"></i>
+                                View Details
+                            </button>
+                            <button class="action-btn secondary" onclick="showExportOptions({{ room.id }}, '{{ room.name }}')">
+                                <i class="fas fa-download"></i>
+                                Export
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Auto Refresh Indicator -->
+                <div class="auto-refresh-indicator">
+                    <i class="fas fa-sync-alt refresh-icon"></i>
+                    <span>Auto-refreshing every 30 seconds</span>
+                    <div class="refresh-progress-bar">
+                        <div class="refresh-progress"></div>
+                    </div>
+                </div>
+
+            {% else %}
+                <!-- Empty State -->
+                <div class="empty-state-enhanced">
+                    <div class="empty-content">
+                        <i class="fas fa-cube empty-icon"></i>
+                        <h2>No Cold Rooms Found</h2>
+                        <p>No cold rooms are configured for {{ location.name }}, or sensor data is not available.</p>
+                        <div class="empty-actions">
+                            <button class="btn-refresh" onclick="window.location.reload()">
+                                <i class="fas fa-refresh"></i>
+                                Refresh Page
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <!-- No Location Assigned -->
+            <div class="empty-state-enhanced">
+                <div class="empty-content">
+                    <i class="fas fa-user-slash empty-icon"></i>
+                    <h2>No Location Assigned</h2>
+                    <p>You haven't been assigned to any location yet. Please contact your administrator to get access to cold room monitoring.</p>
+                    <div class="empty-actions">
+                        <a href="mailto:admin@company.com" class="btn-contact">
+                            <i class="fas fa-envelope"></i>
+                            Contact Administrator
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Enhanced Modal for Room Details -->
+    <div id="roomDetailsModal" class="modal-enhanced" onclick="closeModal(event)">
+        <div class="modal-content-enhanced">
+            <div class="modal-header-enhanced">
+                <h2 id="modalRoomName">Cold Room Details</h2>
+                <button class="modal-close" onclick="closeRoomDetails()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body-enhanced">
+                <div id="modalContent">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Loading room details...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options Modal -->
+    <div id="exportModal" class="modal-enhanced" onclick="closeExportModal(event)">
+        <div class="modal-content-enhanced export-modal">
+            <div class="modal-header-enhanced">
+                <h2 id="exportModalTitle">Export Temperature Data</h2>
+                <button class="modal-close" onclick="closeExportModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body-enhanced">
+                <form id="exportForm" class="export-form">
+                    <input type="hidden" id="exportRoomId" name="room_id">
+
+                    <div class="form-group">
+                        <label for="dateFrom">From Date:</label>
+                        <input type="date" id="dateFrom" name="date_from" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dateTo">To Date:</label>
+                        <input type="date" id="dateTo" name="date_to" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="aggregation">Data Aggregation:</label>
+                        <select id="aggregation" name="aggregation" required>
+                            <option value="full">Full Data (All Readings)</option>
+                            <option value="hourly">Hourly Averages</option>
+                            <option value="daily">Daily Averages</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="format">Export Format:</label>
+                        <select id="format" name="format" required>
+                            <option value="csv">CSV (.csv)</option>
+                            <option value="excel">Excel (.xlsx)</option>
+                        </select>
+                    </div>
+
+                    <div class="export-actions">
+                        <button type="button" class="btn-cancel" onclick="closeExportModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn-export">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh functionality
+        let refreshInterval = 30; // seconds
+        let currentInterval = refreshInterval;
+
+        function updateRefreshProgress() {
+            const progressBar = document.querySelector('.refresh-progress');
+            const percentage = ((refreshInterval - currentInterval) / refreshInterval) * 100;
+
+            if (progressBar) {
+                progressBar.style.width = percentage + '%';
+            }
+
+            currentInterval--;
+
+            if (currentInterval <= 0) {
+                window.location.reload();
+            }
+        }
+
+        // Start refresh countdown
+        setInterval(updateRefreshProgress, 1000);
+
+        // Mini chart functionality
+        function drawMiniCharts() {
+            const charts = document.querySelectorAll('.mini-temp-chart');
+
+            charts.forEach(canvas => {
+                const ctx = canvas.getContext('2d');
+                const temps = JSON.parse(canvas.dataset.temps);
+
+                if (temps.length === 0) return;
+
+                const width = canvas.width;
+                const height = canvas.height;
+                const padding = 5;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                // Find min/max for scaling
+                const minTemp = Math.min(...temps);
+                const maxTemp = Math.max(...temps);
+                const tempRange = maxTemp - minTemp || 1;
+
+                // Set up gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                gradient.addColorStop(0, 'rgba(74, 144, 226, 0.3)');
+                gradient.addColorStop(1, 'rgba(74, 144, 226, 0.1)');
+
+                // Draw area chart
+                ctx.beginPath();
+                ctx.moveTo(padding, height - padding);
+
+                temps.forEach((temp, index) => {
+                    const x = padding + (index / (temps.length - 1)) * (width - 2 * padding);
+                    const y = height - padding - ((temp - minTemp) / tempRange) * (height - 2 * padding);
+
+                    if (index === 0) {
+                        ctx.lineTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.lineTo(width - padding, height - padding);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Draw line
+                ctx.beginPath();
+                temps.forEach((temp, index) => {
+                    const x = padding + (index / (temps.length - 1)) * (width - 2 * padding);
+                    const y = height - padding - ((temp - minTemp) / tempRange) * (height - 2 * padding);
+
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.strokeStyle = '#4A90E2';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        // Modal functionality
+        function openRoomDetails(roomId) {
+            const modal = document.getElementById('roomDetailsModal');
+            modal.style.display = 'flex';
+
+            // Load room details via AJAX
+            fetch(`/cold_room/${roomId}/data`)
+                .then(response => response.text())
+                .then(html => {
+                    // Extract content from the response (simplified)
+                    document.getElementById('modalContent').innerHTML = `
+                        <iframe src="/cold_room/${roomId}/data" width="100%" height="600" frameborder="0"></iframe>
+                    `;
+                })
+                .catch(error => {
+                    document.getElementById('modalContent').innerHTML = `
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Failed to load room details. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function closeRoomDetails() {
+            document.getElementById('roomDetailsModal').style.display = 'none';
+        }
+
+        function closeModal(event) {
+            if (event.target === event.currentTarget) {
+                closeRoomDetails();
+            }
+        }
+
+        // Export Modal Functions
+        function showExportOptions(roomId, roomName) {
+            document.getElementById('exportModal').style.display = 'flex';
+            document.getElementById('exportModalTitle').textContent = `Export Data - ${roomName}`;
+            document.getElementById('exportRoomId').value = roomId;
+
+            // Set default dates (last 7 days)
+            const today = new Date();
+            const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+            document.getElementById('dateFrom').value = lastWeek.toISOString().split('T')[0];
+        }
+
+        function closeExportModal(event) {
+            if (!event || event.target === event.currentTarget || event.type === 'click') {
+                document.getElementById('exportModal').style.display = 'none';
+            }
+        }
+
+        // Header Action Functions
+        function showAlerts() {
+            // You can implement alert details modal here
+            alert('Alerts functionality - to be implemented');
+        }
+
+        function refreshDashboard() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.classList.add('fa-spin');
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        }
+
+        // Update last update time dynamically
+        function updateCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const timeElement = document.getElementById('lastUpdateTime');
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCurrentTime();
+            drawMiniCharts();
+
+            // Add click handlers to cards
+            document.querySelectorAll('.resort-room-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (!e.target.closest('.action-btn')) {
+                        const roomId = this.dataset.roomId;
+                        openRoomDetails(roomId);
+                    }
+                });
+            });
+        });
+
+        // Export Form Handling
+        document.getElementById('exportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const params = new URLSearchParams();
+
+            for (let [key, value] of formData.entries()) {
+                params.append(key, value);
+            }
+
+            // Create download URL
+            const roomId = formData.get('room_id');
+            const url = `/cold_room/${roomId}/export?${params.toString()}`;
+
+            // Create temporary download link
+            const link = document.createElement('a');
+            link.href = url;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Close modal
+            closeExportModal();
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeRoomDetails();
+                closeExportModal();
+            }
+        });
+    </script>
+{% endblock %}
